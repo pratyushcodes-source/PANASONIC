@@ -1,11 +1,14 @@
 
 import { GoogleGenAI, Chat, GenerateContentResponse, GroundingMetadata } from '@google/genai';
 
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable is not set. Please ensure it is configured.");
+const API_KEY = import.meta.env.VITE_API_KEY;
+
+if (!API_KEY) {
+  throw new Error("VITE_API_KEY environment variable is not set. Please ensure it is configured.");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: API_KEY });
+
 
 export const initChat = (): Chat => {
   const systemInstruction = `You are a friendly and highly knowledgeable Panasonic Product Support Assistant, specializing in products and services relevant to the Indian market.

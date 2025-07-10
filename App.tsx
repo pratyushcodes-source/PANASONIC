@@ -7,13 +7,16 @@ import MessageBubble from './components/MessageBubble';
 import Header from './components/Header';
 import LoadingIndicator from './components/LoadingIndicator';
 import SuggestedQuestions from './components/SuggestedQuestions';
+import { searchSimilarQuestions } from './scripts/searchSimilarQuestions';
 
-export const App: React.FC = () => {
+const App: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [chatSession, setChatSession] = useState<Chat | null>(null);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const suggestedQuestionsList: string[] = [
@@ -23,6 +26,14 @@ export const App: React.FC = () => {
     "Warranty for Panasonic microwaves?",
     "Compare Lumix S5II and S5IIX",
     "Panasonic refrigerator features",
+  ];
+
+  const fallbackSuggestions = [
+    "How to register a Panasonic product?",
+    "Where to find product manuals?",
+    "Panasonic washing machine not draining",
+    "Resetting a microwave oven",
+    "Panasonic refrigerator troubleshooting"
   ];
 
   const scrollToBottom = () => {
@@ -47,6 +58,7 @@ export const App: React.FC = () => {
           timestamp: new Date(),
         },
       ]);
+      setSuggestedQuestions(suggestedQuestionsList);
     } catch (e: any) {
       console.error("Failed to initialize chat:", e);
       setError("Failed to initialize chat. Please check your API key and refresh.");
@@ -55,15 +67,14 @@ export const App: React.FC = () => {
       setIsLoading(false);
     }
   }, []);
-  
+
   useEffect(() => {
     initializeChat();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  }, [initializeChat]);
 
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || inputValue;
+    console.log("✅ handleSendMessage triggered with:", messageText || inputValue);
     if (!textToSend.trim() || isLoading || !chatSession) return;
 
     const userMessage: ChatMessage = {
@@ -73,8 +84,24 @@ export const App: React.FC = () => {
       timestamp: new Date(),
     };
     setMessages((prevMessages) => [...prevMessages, userMessage]);
-    
-    if (!messageText) { 
+    console.log("Calling searchSimilarQuestions with:", textToSend);
+
+    searchSimilarQuestions(textToSend)
+      .then((results) => {
+        console.log("searchSimilarQuestions result:", results);
+
+        if (results && results.length > 0) {
+          setSuggestedQuestions(results.slice(0, 5));
+        } else {
+          setSuggestedQuestions(fallbackSuggestions);
+        }
+      })
+      .catch((err) => {
+        console.error("Suggestion fetch error:", err);
+        setSuggestedQuestions(fallbackSuggestions);
+      });
+
+    if (!messageText) {
       setInputValue('');
     }
     setIsLoading(true);
@@ -100,7 +127,7 @@ export const App: React.FC = () => {
               let updatedGroundingChunks = msg.groundingChunks || [];
 
               if (chunkGroundingMetadata?.groundingChunks && chunkGroundingMetadata.groundingChunks.length > 0) {
-                const existingUris = new Set((updatedGroundingChunks).map(gc => gc.web?.uri).filter(Boolean));
+                const existingUris = new Set(updatedGroundingChunks.map(gc => gc.web?.uri).filter(Boolean));
                 const newChunksToAdd = chunkGroundingMetadata.groundingChunks.filter(
                   newChunk => newChunk.web?.uri && !existingUris.has(newChunk.web.uri)
                 );
@@ -136,29 +163,35 @@ export const App: React.FC = () => {
   };
 
   const handleSuggestedQuestionClick = async (question: string) => {
-    if (isLoading) return; 
+    if (isLoading) return;
     await handleSendMessage(question);
   };
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white">
       <Header />
-      
-      {chatSession && messages.length > 0 && !isLoading && (
-         <SuggestedQuestions 
-            questions={suggestedQuestionsList} 
-            onQuestionClick={handleSuggestedQuestionClick} 
-          />
-      )}
+
+      {chatSession && messages.length > 0 && !isLoading && suggestedQuestions.length > 0 && (
+  <SuggestedQuestions
+    key={messages.length} // 🔑 Force re-render when a new message is added
+    questions={suggestedQuestions}
+    onQuestionClick={handleSuggestedQuestionClick}
+  />
+)}
+
 
       <div className="flex-grow overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-800/50 backdrop-blur-sm shadow-inner">
         {messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
-        {isLoading && messages[messages.length-1]?.sender === Sender.User && <div className="flex justify-start pl-2 pt-2"><LoadingIndicator /></div>}
+        {isLoading && messages[messages.length - 1]?.sender === Sender.User && (
+          <div className="flex justify-start pl-2 pt-2">
+            <LoadingIndicator />
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
-      
+
       {error && !messages.some(msg => msg.error && msg.text.includes(error)) && (
         <div className="p-3 bg-red-600 text-white text-center text-xs font-medium shadow-lg">
           Error: {error}
@@ -173,3 +206,5 @@ export const App: React.FC = () => {
     </div>
   );
 };
+
+export default App;

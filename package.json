@@ -9,10 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.1.0",
+    "@chroma-core/default-embed": "^0.1.8",
+    "@google/genai": "^1.5.1",
+    "chromadb": "^3.0.7",
+    "chromadb-client": "^2.4.6",
     "lucide-react": "^0.518.0",
-    "react-dom": "^19.1.0",
-    "@google/genai": "^1.5.1"
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
